@@ -2,12 +2,19 @@
   "manifest_version": 2,
   "name": "Github Sort",
   "version": "0.0.1",
+  "permissions": [
+    "storage"
+  ],
   "content_scripts": [
     {
       "matches": [
         "*://github.com/*"
       ],
-      "js": ["content.js"]
+      "js": ["common.js", "content.js"]
     }
-  ]
+  ],
+  "browser_action": {
+    "default_title": "123123",
+    "default_popup": "popup/popup.html"
+  }
 }

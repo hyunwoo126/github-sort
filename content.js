@@ -1,3 +1,38 @@
+function getElementsToSort() {
+  return Array.from(
+    document.querySelectorAll('.js-diff-progressive-container .file.js-details-container'),
+  );
+}
+
+function reorderDom(domList) {
+  console.log('reorderDom', domList.length);
+  const containers = document.getElementsByClassName('js-diff-progressive-container');
+  const lastContainer = containers[containers.length - 1];
+  domList.forEach((dom) => {
+    lastContainer.appendChild(dom);
+  });
+}
+
+
+function deprioritize() {
+  getFromStorage('deprioritize').then((depriorityList) => {
+    const regex = RegExp(depriorityList[0]);
+    const sorted = getElementsToSort().sort((a, b) => {
+      const aTitle = a.querySelector('.file-header .file-info a').getAttribute('title');
+      const bTitle = b.querySelector('.file-header .file-info a').getAttribute('title');
+      const aMatch = regex.test(aTitle);
+      const bMatch = regex.test(bTitle);
+
+      if (aMatch && !bMatch) return 1;
+      else if (!aMatch && bMatch) return -1;
+      else return 0;
+    });
+    reorderDom(sorted);
+  });
+}
+
+
+
 const totalChildElemCount = () => {
   const elemsToObserve = document.getElementsByClassName('js-diff-progressive-container');
   return Array.from(elemsToObserve).reduce((total, elem) => {
@@ -19,6 +54,8 @@ const attachObserver = () => {
     });
     observer.observe(toObserve, { childList: true });
   });
+
+  console.log(`js-diff-progressive-container count: ${Array.from(elemsToObserve).length}`);
 };
 
 const isFilesView = () => {
@@ -27,15 +64,16 @@ const isFilesView = () => {
 };
 
 const run = () => {
-  console.log(`count: ${totalChildElemCount()}`);
+  if (isFilesView()) {
+    deprioritize();
+  }
+  // console.log(`count: ${totalChildElemCount()}`);
 
   // const lastItem = Array.from(document.querySelectorAll('.float-left .diffbar-item')).slice(-1).pop();
   // lastItem.parentNode.appendChild(`<span>${totalChildElemCount()}</span>`);
 };
 
-
-(() => {
-  console.log('good to go!');
+function initialize() {
   run();
 
   if (isFilesView()) {
@@ -47,12 +85,41 @@ const run = () => {
   }
 
   document.addEventListener("pjax:end", () => {
-    console.log('----- pjax:end -----');
     run();
     if (isFilesView()) {
       attachObserver();
     }
   });
+}
 
-  
+
+(() => {
+  console.log('good to go!');
+
+  chrome.runtime.onMessage.addListener(
+    function(request, sender, sendResponse) {
+      console.log(sender.tab ?
+                  "from a content script:" + sender.tab.url :
+                  "from the extension");
+      if (request.action == "sort") {
+        run();
+        sendResponse(true);
+      }
+    });
+
+
+
+  chrome.storage.onChanged.addListener(function(changes, namespace) {
+    for (var key in changes) {
+      var storageChange = changes[key];
+      console.log('Storage key "%s" in namespace "%s" changed. ' +
+                  'Old value was "%s", new value is "%s".',
+                  key,
+                  namespace,
+                  storageChange.oldValue,
+                  storageChange.newValue);
+      console.log(storageChange.newValue);
+    }
+  });
+ 
 })();
